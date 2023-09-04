@@ -1,0 +1,35 @@
+//GoPro Protune IDT for ACES workflow inside DaVinci Resolve
+#if (__RESOLVE_VER_MAJOR__ >= 17)
+DEFINE_ACES_PARAM(IS_PARAMETRIC_ACES_TRANSFORM: 0)
+#endif
+
+//Protune Native to ACES using CAT02
+// https://www.colour-science.org:8010/apps/rgb_colourspace_transformation_matrix?input-colourspace=Protune+Native&output-colourspace=ACES2065-1&chromatic-adaptation-transform=Bianco+2010&formatter=str&decimals=10
+__CONSTANT__ float native[3][3] = { {0.5334485085f, 0.3241390900f, 0.1424124015f}, {-0.0507299513f, 1.0757204282f, -0.0249904770f}, {0.0714196550f, -0.2905219446f, 1.2191022896f} };
+
+
+//5000k calibrated to adobe lightroom
+__CONSTANT__ float adobe[3][3] = { {0.979456998f, -0.1304095469f, -0.07407738326f}, {-0.2183200542f, 1.083534776f, -0.07655622585f}, {-0.2587122387f, 0.2808154962f, 0.73718964f} };
+
+
+__DEVICE__ float protune_to_linear(float xV) {
+	return ((_powf(113.0f, xV) - 1.0f) / 112.0f);
+}
+
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+	p_R = protune_to_linear(p_R) * 4.0f * 0.92f;
+	p_G = protune_to_linear(p_G) * 4.0f;
+	p_B = protune_to_linear(p_B) * 4.0f * 1.30f;
+
+	float rVal = native[0][0] * p_R + native[0][1] * p_G + native[0][2] * p_B;
+	float gVal = native[1][0] * p_R + native[1][1] * p_G + native[1][2] * p_B;
+	float bVal = native[2][0] * p_R + native[2][1] * p_G + native[2][2] * p_B;
+
+	float rVal2 = adobe[0][0] * rVal + adobe[0][1] * gVal + adobe[0][2] * bVal;
+	float gVal2 = adobe[1][0] * rVal + adobe[1][1] * gVal + adobe[1][2] * bVal;
+	float bVal2 = adobe[2][0] * rVal + adobe[2][1] * gVal + adobe[2][2] * bVal;
+
+	return make_float3( rVal2, gVal2, bVal2);
+}
